@@ -56,7 +56,8 @@
       
       <body name="link_1" pos="0.012 0 0.0409" >
         <inertial pos="0.011924 -0.00048792 0.013381" quat="-0.0190903 0.705417 0.0178052 0.708312" mass="0.05014" diaginertia="1.44921e-05 1.2371e-05 7.59138e-06"/>
-        <joint name="joint_1" pos="0 0 0" axis="0 0 -1" range="-3.14 3.14"/>
+        <!-- <joint name="joint_1" pos="0 0 0" axis="0 0 -1" range="-3.14 3.14"/> -->
+        <joint name="joint_1" pos="0 0 0" axis="0 0 -1" range="-1.57 1.57"/>
         <geom mesh="link_1" class="visual" material="white"/>
         <geom mesh="link_1_motor" class="visual" material="black"/>
         <geom mesh="link_1_collision" class="collision"/>
@@ -64,6 +65,7 @@
         <body name="link_2" pos="0 -0.0209 0.0154">
           <inertial pos="0.0011747 0.02097 0.071547" quat="0.998768 2.01447e-05 0.0496266 0.000367169" mass="0.050177" diaginertia="3.73065e-05 3.3772e-05 7.94901e-06"/>
           <joint name="joint_2" pos="0 0 0" axis="0 1 0" range="-3.14 3.14"/>
+          <!-- <joint name="joint_2" pos="0 0 0" axis="0 1 0" range="-0.7 0.7"/> -->
           <geom mesh="link_2" class="visual" material="white"/>
           <geom mesh="link_2_motor" class="visual" material="black"/>
           <geom mesh="link_2_collision" class="collision"/>
@@ -71,6 +73,7 @@
           <body name="link_3" pos="-0.0148 0.0065 0.1083">
             <inertial pos="-0.05537 0.014505 0.0028659" quat="8.17663e-05 0.710999 -4.16983e-05 0.703193" mass="0.06379" diaginertia="2.45081e-05 2.2231e-05 7.34061e-06"/>
             <joint name="joint_3" pos="0 0 0" axis="0 -1 0" range="-3.14 3.14"/>
+            <!-- <joint name="joint_3" pos="0 0 0" axis="0 -1 0" range="-0.5 0.5"/> -->
             <geom mesh="link_3" class="visual" material="white"/>
             <geom mesh="link_3_motor" class="visual" material="black"/>
             <geom mesh="link_3_collision" class="collision"/>
@@ -78,6 +81,7 @@
             <body name="link_4" pos="-0.10048 5e-05 0.0026999">
               <inertial pos="-0.02652 0.019195 -9.0614e-06" quat="0.707361 0.706812 0.00580344 0.00484124" mass="0.019805" diaginertia="2.95813e-06 2.8759e-06 1.07787e-06"/>
               <joint name="joint_4" pos="0 0 0" axis="0 1 0" range="-3.14 3.14"/>
+              <!-- <joint name="joint_4" pos="0 0 0" axis="0 1 0" range="-1.7 1.7"/> -->
               <geom mesh="link_4" class="visual" material="white"/>
               <geom mesh="link_4_motor" class="visual" material="black"/>
               <geom mesh="link_4_collision" class="collision"/>

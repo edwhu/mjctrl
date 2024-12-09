@@ -30,6 +30,54 @@ Kn /= 10.0
 max_angvel = 0.785
 
 
+def diffik_nullspace(
+    model,
+    data,
+    goal_pos,
+    goal_quat,
+    site_id,
+    twist,
+    site_quat,
+    site_quat_conj,
+    error_quat,
+    eye,
+    jac,
+    diag,
+    q0,
+    dof_ids,
+):
+    # Spatial velocity (aka twist).
+    # dx = data.mocap_pos[mocap_id] - data.site(site_id).xpos
+    dx = goal_pos - data.site(site_id).xpos
+    twist[:3] = Kpos * dx / integration_dt
+    mujoco.mju_mat2Quat(site_quat, data.site(site_id).xmat)
+    mujoco.mju_negQuat(site_quat_conj, site_quat)
+    # mujoco.mju_mulQuat(error_quat, data.mocap_quat[mocap_id], site_quat_conj)
+    mujoco.mju_mulQuat(error_quat, goal_quat, site_quat_conj)
+    mujoco.mju_quat2Vel(twist[3:], error_quat, 1.0)
+    twist[3:] *= Kori / integration_dt
+
+    # Jacobian.
+    mujoco.mj_jacSite(model, data, jac[:3], jac[3:], site_id)
+
+    # Damped least squares.
+    dq = jac.T @ np.linalg.solve(jac @ jac.T + diag, twist)
+
+    # Nullspace control biasing joint velocities towards the home configuration.
+    dq += (eye - np.linalg.pinv(jac) @ jac) @ (Kn * (q0 - data.qpos[dof_ids]))
+
+    # Clamp maximum joint velocity.
+    dq_abs_max = np.abs(dq).max()
+    if dq_abs_max > max_angvel:
+        dq *= max_angvel / dq_abs_max
+
+    # Integrate joint velocities to obtain joint positions.
+    q = data.qpos.copy()  # Note the copy here is important.
+    mujoco.mj_integratePos(model, q, dq, integration_dt)
+    np.clip(q, *model.jnt_range.T, out=q)
+    return q
+
+
 def main() -> None:
     assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
 
@@ -77,6 +125,20 @@ def main() -> None:
     site_quat_conj = np.zeros(4)
     error_quat = np.zeros(4)
 
+    bottom_left = [-0.06, -0.10, 0.015]
+    bottom_right = [-0.06, 0.10, 0.015]
+    top_left = [-0.14, -0.10, 0.015]
+    top_right = [-0.14, 0.10, 0.015]
+    goals = [bottom_left, bottom_right, top_right, top_left]
+
+    bottom_left = [-0.06, -0.10, 0.05]
+    bottom_right = [-0.06, 0.10, 0.05]
+    top_left = [-0.14, -0.10, 0.05]
+    top_right = [-0.14, 0.10, 0.05]
+    goals.extend([top_left, top_right, bottom_right, bottom_left])
+
+
+
     with mujoco.viewer.launch_passive(
         model=model,
         data=data,
@@ -91,44 +153,41 @@ def main() -> None:
 
         # Enable site frame visualization.
         viewer.opt.frame = mujoco.mjtFrame.mjFRAME_SITE
+        # set goal quat to just the initial arm quat
+        goal_quat = data.mocap_quat[mocap_id]
+        steps = 0
+        goal_interval = 500
 
         while viewer.is_running():
             step_start = time.time()
 
             # Spatial velocity (aka twist).
-            dx = data.mocap_pos[mocap_id] - data.site(site_id).xpos
-            # print(f"mocap: {data.mocap_pos}, site: {data.site(site_id).xpos}",end='\r')
-            twist[:3] = Kpos * dx / integration_dt
-            mujoco.mju_mat2Quat(site_quat, data.site(site_id).xmat)
-            mujoco.mju_negQuat(site_quat_conj, site_quat)
-            mujoco.mju_mulQuat(error_quat, data.mocap_quat[mocap_id], site_quat_conj)
-            mujoco.mju_quat2Vel(twist[3:], error_quat, 1.0)
-            twist[3:] *= Kori / integration_dt
+            if steps % goal_interval == 0:
+                goal_pos = goals[ (steps // goal_interval) % len(goals)]   
 
-            # Jacobian.
-            mujoco.mj_jacSite(model, data, jac[:3], jac[3:], site_id)
-
-            # Damped least squares.
-            dq = jac.T @ np.linalg.solve(jac @ jac.T + diag, twist)
-
-            # Nullspace control biasing joint velocities towards the home configuration.
-            dq += (eye - np.linalg.pinv(jac) @ jac) @ (Kn * (q0 - data.qpos[dof_ids]))
-
-            # Clamp maximum joint velocity.
-            dq_abs_max = np.abs(dq).max()
-            if dq_abs_max > max_angvel:
-                dq *= max_angvel / dq_abs_max
-
-            # Integrate joint velocities to obtain joint positions.
-            q = data.qpos.copy()  # Note the copy here is important.
-            mujoco.mj_integratePos(model, q, dq, integration_dt)
-            np.clip(q, *model.jnt_range.T, out=q)
+            q = diffik_nullspace(
+                model,
+                data,
+                goal_pos,
+                goal_quat,
+                site_id,
+                twist,
+                site_quat,
+                site_quat_conj,
+                error_quat,
+                eye,
+                jac,
+                diag,
+                q0,
+                dof_ids,
+            )
 
             # Set the control signal and step the simulation.
             data.ctrl[actuator_ids] = q[dof_ids]
             mujoco.mj_step(model, data)
-
+            print(f"t: {steps} goal: {goal_pos}, arm: {data.site(site_id).xpos}",end='\r')
             viewer.sync()
+            steps += 1
             time_until_next_step = dt - (time.time() - step_start)
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
